@@ -1,0 +1,50 @@
+name: Publish MediaMTX Manager v1.7.0
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-v1.7.0.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch and verify original installers
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-delay 3 -o MediaMTX-Manager-Windows-Setup.exe 'https://github.com/1363306384/tiktok/releases/download/v1.7.0/MediaMTX-Manager-Windows-Setup.exe'
+          curl -fL --retry 4 --retry-delay 3 -o MediaMTX-Manager-macOS.dmg 'https://github.com/1363306384/tiktok/releases/download/v1.7.0/MediaMTX-Manager-macOS.dmg'
+          echo 'd987e15e790c161f079cf37c70267b8a03bc82277f96baa454d86d9b4103de2f  MediaMTX-Manager-Windows-Setup.exe' | sha256sum --check
+          echo '2dbbf55288af892fd5e1469341b8574b6c62a1559a173637c25656ea3454ea27  MediaMTX-Manager-macOS.dmg' | sha256sum --check
+      - name: Write release notes
+        shell: bash
+        run: |
+          cat > RELEASE_NOTES.md <<'EOF'
+          # MediaMTX Manager 1.7.0
+
+          ## Changes / 更新内容
+          - Windows opens in a standalone application window instead of a browser tab. / Windows 使用独立应用窗口。
+          - Fixed install, update, start, stop and restart controls on Windows. / 修复 Windows 服务操作按钮无响应问题。
+          - Windows installer includes shortcuts and uninstaller. / Windows 安装程序包含快捷方式和卸载功能。
+          - macOS DMG supports Apple Silicon and Intel. / macOS 同时支持 Apple Silicon 与 Intel。
+          - MediaMTX service controls, streaming status, monitoring and IP synchronization. / 保留服务管理、直播状态、资源监控与公网 IP 同步。
+
+          ## Installation / 安装
+          - **Windows:** Download and run `MediaMTX-Manager-Windows-Setup.exe`.
+          - **macOS:** Download `MediaMTX-Manager-macOS.dmg` and drag the app to Applications.
+
+          Existing users should run Update/Repair once after installation. / 已有用户安装后请运行一次“更新 / 修复”。
+          EOF
+      - name: Publish verified binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v1.7.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v1.7.0 MediaMTX-Manager-Windows-Setup.exe MediaMTX-Manager-macOS.dmg --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create v1.7.0 MediaMTX-Manager-Windows-Setup.exe MediaMTX-Manager-macOS.dmg --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'MediaMTX Manager v1.7.0' --notes-file RELEASE_NOTES.md
+          fi
